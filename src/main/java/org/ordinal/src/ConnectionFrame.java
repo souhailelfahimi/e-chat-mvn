@@ -27,6 +27,8 @@ public class ConnectionFrame extends JFrame {
     private JLabel res;
     private JTextField tport;
     private JLabel port;
+    private String defaultIp = "localhost";
+    private int defaultPort = 8818;
 
     // constructor, to initialize the components
     // with default values.
@@ -130,17 +132,21 @@ public class ConnectionFrame extends JFrame {
         start.setBounds(187, 253, 117, 31);
         start.addActionListener(e -> {
             try {
-                FormDetails formDetails =new FormDetails(tname.getText(),tIp.getText(),tport.getText());
+                FormDetails formDetails;
                 if (server.isSelected()) {
+                    formDetails = FormDetails.builder().name(tname.getText()).ip(defaultIp).port(defaultPort).isClient(false).build();
                     ServerView.main(null);
-                    LoginClient.startNewClient(formDetails,false);
+                    LoginClient.startNewClient(formDetails);
                 } else {
-                    LoginClient.startNewClient(formDetails,true);
+                    String ip = tIp.getText().isEmpty() ? defaultIp : tIp.getText();
+                    int port = tport.getText().isEmpty() ? defaultPort : Integer.parseInt(tport.getText());
+                    formDetails = FormDetails.builder().name(tname.getText()).ip(ip).port(port).isClient(true).build();
+                    LoginClient.startNewClient(formDetails);
                 }
             } catch (Exception ex) {
                 ex.printStackTrace();
 
-            }finally {
+            } finally {
                 dispose();
             }
         });

@@ -13,7 +13,6 @@ import java.time.LocalDateTime;
 public class Conversation {
     private int conversationId;
     private Server server;
-    private String conversationName;
     private LocalDateTime conversationCreatedAt;
 
 }

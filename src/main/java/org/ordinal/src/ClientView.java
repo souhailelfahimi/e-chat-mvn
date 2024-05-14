@@ -1,8 +1,11 @@
 package org.ordinal.src;
 
+import org.ordinal.src.model.FormDetails;
+import org.ordinal.src.model.Message;
+import org.ordinal.src.model.Server;
+import org.ordinal.src.model.User;
+
 import javax.swing.*;
-import java.awt.event.ActionEvent;
-import java.awt.event.ActionListener;
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.IOException;
@@ -23,10 +26,12 @@ public class ClientView extends JFrame {
     DataOutputStream outStream;
     DefaultListModel<String> dm;
     String id, clientIds = "";
+    FormDetails formDetails;
 
-    public ClientView(String id, Socket s) { // constructor call, it will initialize required variables
+    public ClientView(FormDetails formDetails, Socket s) {
+        this.formDetails = formDetails;
         initialize(); // initilize UI components
-        this.id = id;
+        this.id = formDetails.getName();
         try {
             frame.setTitle("Client View - " + id); // set title of UI
             dm = new DefaultListModel<String>(); // default list used for showing active users on UI
@@ -89,39 +94,41 @@ public class ClientView extends JFrame {
         clientTypingBoard.setColumns(10);
 
         JButton clientSendMsgBtn = new JButton("Send");
-        clientSendMsgBtn.addActionListener(new ActionListener() { // action to be taken on send message button
-            public void actionPerformed(ActionEvent e) {
-                String textAreaMessage = clientTypingBoard.getText(); // get the message from textbox
-                if (textAreaMessage != null && !textAreaMessage.isEmpty()) {  // only if message is not empty then send it further otherwise do nothing
-                    try {
-                        String messageToBeSentToServer = "";
-                        String cast = "multicast"; // this will be an identifier to identify type of message
-                        int flag = 0; // flag used to check whether used has selected any client or not for multicast
+        // action to be taken on send message button
+        clientSendMsgBtn.addActionListener(e -> {
+            String textAreaMessage = clientTypingBoard.getText(); // get the message from textbox
+            if (textAreaMessage != null && !textAreaMessage.isEmpty()) {  // only if message is not empty then send it further otherwise do nothing
+                try {
+                    String messageToBeSentToServer = "";
+                    String cast = "multicast"; // this will be an identifier to identify type of message
+                    int flag = 0; // flag used to check whether used has selected any client or not for multicast
 
-                        List<String> clientList = clientActiveUsersList.getSelectedValuesList(); // get all the users selected on UI
-                        if (clientList.size() == 0) // if no user is selected then set the flag for further use
-                            flag = 1;
-                        for (String selectedUsr : clientList) { // append all the usernames selected in a variable
-                            if (clientIds.isEmpty())
-                                clientIds += selectedUsr;
-                            else
-                                clientIds += "," + selectedUsr;
-                        }
-                        messageToBeSentToServer = cast + ":" + clientIds + ":" + textAreaMessage; // prepare message to be sent to server
-
-
-                        if (flag == 1) { // for multicast check if no user was selected then prompt a message dialog
-                            JOptionPane.showMessageDialog(frame, "No user selected");
-                        } else { // otherwise just send the message to the user
-                            outStream.writeUTF(messageToBeSentToServer);
-                            clientTypingBoard.setText("");
-                            clientMessageBoard.append("< You sent msg to " + clientIds + ">" + textAreaMessage + "\n"); //show the sent message to the sender's message board
-                        }
-
-                        clientIds = ""; // clear the all the client ids
-                    } catch (Exception ex) {
-                        JOptionPane.showMessageDialog(frame, "model.FormDetails does not exist anymore."); // if user doesn't exist then show message
+                    List<String> clientList = clientActiveUsersList.getSelectedValuesList(); // get all the users selected on UI
+                    if (clientList.size() == 0) // if no user is selected then set the flag for further use
+                        flag = 1;
+                    for (String selectedUsr : clientList) { // append all the usernames selected in a variable
+                        if (clientIds.isEmpty())
+                            clientIds += selectedUsr;
+                        else
+                            clientIds += "," + selectedUsr;
                     }
+                    messageToBeSentToServer = cast + ":" + clientIds + ":" + textAreaMessage; // prepare message to be sent to server
+
+
+                    if (flag == 1) { // for multicast check if no user was selected then prompt a message dialog
+                        JOptionPane.showMessageDialog(frame, "No user selected");
+                    } else { // otherwise just send the message to the user
+                        System.out.println("sender => " + id);
+                        System.out.println("receiver => " + clientIds);
+                        System.out.println("message => " + textAreaMessage);
+                        outStream.writeUTF(messageToBeSentToServer);
+                        clientTypingBoard.setText("");
+                        clientMessageBoard.append("< You sent msg to " + clientIds + ">" + textAreaMessage + "\n"); //show the sent message to the sender's message board
+                        saveMessagetoDatabase(formDetails, textAreaMessage);
+                    }
+                    clientIds = ""; // clear the all the client ids
+                } catch (Exception ex) {
+                    JOptionPane.showMessageDialog(frame, "model.FormDetails does not exist anymore."); // if user doesn't exist then show message
                 }
             }
         });
@@ -154,5 +161,16 @@ public class ClientView extends JFrame {
         frame.getContentPane().add(lblNewLabel);
 
         frame.setVisible(true);
+    }
+
+    private void saveMessagetoDatabase(FormDetails formDetails, String textAreaMessage) {
+     /*   User user = new User(formDetails);
+        Server server = Server.builder()
+                .serverIp(formDetails.getIp())
+                .serverPort(formDetails.getPort())
+                .build();
+        Message message= Message.builder()
+                .msgSenderId()
+                .*/
     }
 }

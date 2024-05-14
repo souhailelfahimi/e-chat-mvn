@@ -16,7 +16,6 @@ CREATE TABLE conversations
 (
     conversation_id         INT AUTO_INCREMENT PRIMARY_KEY,
     server_id               INT,
-    conversation_name       VARCHAR(255) NOT NULL,
     conversation_created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (server_id) REFERENCES servers (server_id) ON DELETE SET NULL
 );
