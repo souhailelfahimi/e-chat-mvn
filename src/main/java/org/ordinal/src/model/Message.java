@@ -2,6 +2,7 @@ package org.ordinal.src.model;
 
 import lombok.*;
 
+import java.sql.Timestamp;
 import java.time.LocalDateTime;
 @Getter
 @Setter
@@ -10,10 +11,9 @@ import java.time.LocalDateTime;
 @Builder
 public class Message {
     private int messageId;
-    private int msgConversationId;
-    private int msgSenderId;
+    private User sender;
+    private User receiver;
     private String messageBody;
-    private boolean messageReadStatus;
-    private LocalDateTime messageCreatedAt;
-
+    private boolean isRead;
+    private Timestamp creationTimeStamp;
 }

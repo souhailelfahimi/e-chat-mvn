@@ -1,8 +1,9 @@
 package org.ordinal.src;
 
+import org.ordinal.src.db.DatabaseService;
+import org.ordinal.src.db.UserDAO;
 import org.ordinal.src.model.FormDetails;
 import org.ordinal.src.model.Message;
-import org.ordinal.src.model.Server;
 import org.ordinal.src.model.User;
 
 import javax.swing.*;
@@ -10,6 +11,8 @@ import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.IOException;
 import java.net.Socket;
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.StringTokenizer;
 
@@ -22,16 +25,20 @@ public class ClientView extends JFrame {
     private JList clientActiveUsersList;
     private JTextArea clientMessageBoard;
     private JButton clientKillProcessBtn;
-    DataInputStream inputStream;
-    DataOutputStream outStream;
-    DefaultListModel<String> dm;
-    String id, clientIds = "";
-    FormDetails formDetails;
+    private DataInputStream inputStream;
+    private DataOutputStream outStream;
+    private DefaultListModel<String> dm;
+    private String id, clientIds = "";
+    private FormDetails formDetails;
+    private UserDAO userDAO;
+    private List<User> allUsers;
 
     public ClientView(FormDetails formDetails, Socket s) {
+        userDAO = new UserDAO(new DatabaseService());
         this.formDetails = formDetails;
         initialize(); // initilize UI components
         this.id = formDetails.getName();
+        SaveUser();
         try {
             frame.setTitle("Client View - " + id); // set title of UI
             dm = new DefaultListModel<String>(); // default list used for showing active users on UI
@@ -41,6 +48,17 @@ public class ClientView extends JFrame {
             new Read().start(); // create a new thread for reading the messages
         } catch (Exception ex) {
             ex.printStackTrace();
+        }
+    }
+
+    private void SaveUser() {
+        allUsers = userDAO.getAllUsers();
+        boolean userExistsInDatabase = allUsers.stream().anyMatch(user -> user.getUserName().equals(id));
+
+        if (!userExistsInDatabase) {
+            User newUser = new User();
+            newUser.setUserName(id);
+            userDAO.saveUser(newUser);
         }
     }
 
@@ -164,13 +182,18 @@ public class ClientView extends JFrame {
     }
 
     private void saveMessagetoDatabase(FormDetails formDetails, String textAreaMessage) {
-     /*   User user = new User(formDetails);
-        Server server = Server.builder()
-                .serverIp(formDetails.getIp())
-                .serverPort(formDetails.getPort())
-                .build();
-        Message message= Message.builder()
-                .msgSenderId()
-                .*/
+        User sender = userDAO.findByName(formDetails.getName());
+        List<String> receiversName = Arrays.stream(clientIds.split(",")).toList();
+        List<User> receivers = userDAO.findByNames(receiversName);
+        List<Message> messages = new ArrayList<>();
+        for (User receiver : receivers) {
+            Message message = Message.builder()
+                    .messageBody(textAreaMessage)
+                    .sender(sender)
+                    .receiver(receiver)
+                    .build();
+            messages.add(message);
+        }
+        userDAO.saveMessages(messages);
     }
 }

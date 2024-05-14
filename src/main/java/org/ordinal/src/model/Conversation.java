@@ -12,7 +12,5 @@ import java.time.LocalDateTime;
 @NoArgsConstructor
 public class Conversation {
     private int conversationId;
-    private Server server;
     private LocalDateTime conversationCreatedAt;
-
 }
