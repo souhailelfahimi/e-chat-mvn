@@ -1,17 +1,17 @@
-package org.ordinal.src;//Java program to implement
-//a Simple Registration Form
-//using Java Swing
+package org.ordinal.src.view;
 
-
-import org.ordinal.src.model.FormDetails;
+import org.ordinal.src.Client;
+import org.ordinal.src.Server;
+import org.ordinal.src.model.ConnexionFormDetails;
 
 import javax.swing.*;
 import java.awt.*;
-import java.awt.event.ActionEvent;
-import java.awt.event.ActionListener;
 
-public class ConnectionFrame extends JFrame {
+public class ConnexionView extends JFrame {
 
+    private static final String DEFAULT_IP = "localhost";
+    private static final int DEFAULT_PORT = 8818;
+    public static final String USER_ALREADY_TAKEN_MSG = "Username already taken";
     // Components of the Form
     private Container c;
     private JLabel name;
@@ -25,12 +25,8 @@ public class ConnectionFrame extends JFrame {
     private JLabel res;
     private JTextField tport;
     private JLabel port;
-    private String defaultIp = "localhost";
-    private int defaultPort = 8818;
 
-    // constructor, to initialize the components
-    // with default values.
-    public ConnectionFrame() {
+    public ConnexionView() {
         setTitle("E-chat Connexion");
         setBounds(300, 90, 483, 331);
         setDefaultCloseOperation(EXIT_ON_CLOSE);
@@ -71,12 +67,10 @@ public class ConnectionFrame extends JFrame {
         c.add(cType);
 
         server = new JRadioButton("Server");
-        server.addActionListener(new ActionListener() {
-            public void actionPerformed(ActionEvent e) {
-                tIp.setEnabled(false);
-                tport.setEnabled(false);
+        server.addActionListener(e -> {
+            tIp.setEnabled(false);
+            tport.setEnabled(false);
 
-            }
         });
 
 
@@ -87,11 +81,9 @@ public class ConnectionFrame extends JFrame {
         c.add(server);
 
         client = new JRadioButton("Client");
-        client.addActionListener(new ActionListener() {
-            public void actionPerformed(ActionEvent e) {
-                tIp.setEnabled(true);
-                tport.setEnabled(true);
-            }
+        client.addActionListener(e -> {
+            tIp.setEnabled(true);
+            tport.setEnabled(true);
         });
         client.setFont(new Font("Arial", Font.PLAIN, 15));
         client.setSelected(false);
@@ -110,11 +102,7 @@ public class ConnectionFrame extends JFrame {
         c.add(res);
 
         JButton cancel = new JButton("cancel");
-        cancel.addActionListener(new ActionListener() {
-            public void actionPerformed(ActionEvent e) {
-                dispose();
-            }
-        });
+        cancel.addActionListener(e -> dispose());
         cancel.setFont(new Font("Arial", Font.PLAIN, 15));
         cancel.setBounds(314, 253, 100, 31);
         getContentPane().add(cancel);
@@ -124,17 +112,25 @@ public class ConnectionFrame extends JFrame {
         start.setBounds(187, 253, 117, 31);
         start.addActionListener(e -> {
             try {
-                FormDetails formDetails;
+                ConnexionFormDetails connexionFormDetails;
                 if (server.isSelected()) {
-                    formDetails = FormDetails.builder().name(tname.getText()).ip(defaultIp).port(defaultPort).isClient(false).build();
-                    new ServerView();
-                    LoginClient.startNewClient(formDetails);
+                    connexionFormDetails = ConnexionFormDetails.builder()
+                            .name(tname.getText())
+                            .ip(DEFAULT_IP)
+                            .port(DEFAULT_PORT)
+                            .isClient(false).build();
+                    new Server();
+                    Client.startNewClient(connexionFormDetails);
                 } else {
-                    String ip = tIp.getText().isEmpty() ? defaultIp : tIp.getText();
-                    int port = tport.getText().isEmpty() ? defaultPort : Integer.parseInt(tport.getText());
-                    formDetails = FormDetails.builder().name(tname.getText()).ip(ip).port(port).isClient(true).build();
-                    LoginClient.startNewClient(formDetails);
+                    String ip = tIp.getText().isEmpty() ?
+                            DEFAULT_IP : tIp.getText();
+                    int port = tport.getText().isEmpty() ?
+                            DEFAULT_PORT : Integer.parseInt(tport.getText());
+                    connexionFormDetails = ConnexionFormDetails.builder().name(tname.getText()).ip(ip).port(port).isClient(true).build();
+                    Client.startNewClient(connexionFormDetails);
                 }
+            } catch (NumberFormatException ex) {
+                JOptionPane.showMessageDialog(c, "Port Number is Invalid\n"); // show message in other dialog box
             } catch (Exception ex) {
                 ex.printStackTrace();
 

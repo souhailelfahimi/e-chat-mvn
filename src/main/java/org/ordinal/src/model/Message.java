@@ -3,7 +3,7 @@ package org.ordinal.src.model;
 import lombok.*;
 
 import java.sql.Timestamp;
-import java.time.LocalDateTime;
+
 @Getter
 @Setter
 @AllArgsConstructor

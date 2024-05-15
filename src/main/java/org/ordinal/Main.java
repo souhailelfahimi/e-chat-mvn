@@ -1,9 +1,9 @@
 package org.ordinal;
 
-import org.ordinal.src.ConnectionFrame;
+import org.ordinal.src.view.ConnexionView;
 
 public class Main {
     public static void main(String[] args) {
-        ConnectionFrame f = new ConnectionFrame();
+        ConnexionView f = new ConnexionView();
     }
 }

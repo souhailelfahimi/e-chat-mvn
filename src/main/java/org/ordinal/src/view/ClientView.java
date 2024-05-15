@@ -1,19 +1,22 @@
-package org.ordinal.src;
+package org.ordinal.src.view;
 
 import org.ordinal.src.db.DatabaseService;
 import org.ordinal.src.db.MessageDao;
 import org.ordinal.src.db.UserDAO;
-import org.ordinal.src.model.FormDetails;
+import org.ordinal.src.model.ConnexionFormDetails;
 import org.ordinal.src.model.Message;
 import org.ordinal.src.model.User;
 
 import javax.swing.*;
 import javax.swing.event.ListSelectionEvent;
 import javax.swing.event.ListSelectionListener;
+import java.awt.event.WindowAdapter;
+import java.awt.event.WindowEvent;
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.IOException;
 import java.net.Socket;
+import java.net.SocketException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -22,35 +25,35 @@ import java.util.StringTokenizer;
 
 public class ClientView extends JFrame {
 
-    private static final long serialVersionUID = 1L;
     private JFrame frame;
-    private JTextField clientTypingBoard;
-    private JList clientActiveUsersList;
-    private JTextArea clientMessageBoard;
-    private JButton clientKillProcessBtn;
+    private JTextField typingBoard;
+    private JList activeUsersList;
+    private JTextArea displayBoard;
     private DataInputStream inputStream;
     private DataOutputStream outStream;
     private DefaultListModel<String> dm;
     private String senderName, selectedUsers = "";
-    private FormDetails formDetails;
+    private ConnexionFormDetails connexionFormDetails;
     private UserDAO userDAO;
     private MessageDao messageDao;
     private List<User> allUsers;
+    private Socket socketConnection;
 
-    public ClientView(FormDetails formDetails, Socket s) {
+    public ClientView(ConnexionFormDetails connexionFormDetails, Socket socketConnection) {
+        this.socketConnection = socketConnection;
         DatabaseService databaseService = new DatabaseService();
         userDAO = new UserDAO(databaseService);
         messageDao = new MessageDao(databaseService);
-        this.formDetails = formDetails;
+        this.connexionFormDetails = connexionFormDetails;
         initialize(); // initilize UI components
-        this.senderName = formDetails.getName();
+        this.senderName = connexionFormDetails.getName();
         SaveUser();
         try {
-            frame.setTitle("e-chat : " + senderName + (formDetails.isClient() ? "" : " " + formDetails.getIp() + ":" + formDetails.getPort())); // set title of UI
+            frame.setTitle("e-chat : " + senderName + (connexionFormDetails.isClient() ? "" : " " + connexionFormDetails.getIp() + ":" + connexionFormDetails.getPort())); // set title of UI
             dm = new DefaultListModel<String>(); // default list used for showing active users on UI
-            clientActiveUsersList.setModel(dm);// show that list on UI component JList named clientActiveUsersList
-            inputStream = new DataInputStream(s.getInputStream()); // initilize input and output stream
-            outStream = new DataOutputStream(s.getOutputStream());
+            activeUsersList.setModel(dm);// show that list on UI component JList named clientActiveUsersList
+            inputStream = new DataInputStream(socketConnection.getInputStream()); // initilize input and output stream
+            outStream = new DataOutputStream(socketConnection.getOutputStream());
             new Read().start(); // create a new thread for reading the messages
         } catch (Exception ex) {
             ex.printStackTrace();
@@ -86,8 +89,11 @@ public class ClientView extends JFrame {
                             // user pane on client view
                         }
                     } else {
-                        clientMessageBoard.append("" + m + "\n"); //otherwise print on the clients message board
+                        displayBoard.append("" + m + "\n"); //otherwise print on the clients message board
                     }
+                } catch (SocketException e) {
+                    displayBoard.append("(Info) : Communication terminée");
+                    break;
                 } catch (Exception e) {
                     e.printStackTrace();
                     break;
@@ -105,35 +111,47 @@ public class ClientView extends JFrame {
         frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         frame.getContentPane().setLayout(null);
         frame.setTitle("Client View");
-
-        clientMessageBoard = new JTextArea();
-        clientMessageBoard.setEditable(false);
-        clientMessageBoard.setBounds(12, 25, 530, 495);
+        frame.addWindowListener(new WindowAdapter() {
+            @Override
+            public void windowClosing(WindowEvent e) {
+                try {
+                    outStream.writeUTF("exit"); // closes the thread and show the message on server and client's message
+                    // board
+                    displayBoard.append("You are disconnected now.\n");
+                    frame.dispose(); // close the frame
+                } catch (IOException e1) {
+                    e1.printStackTrace();
+                }
+            }
+        });
+        displayBoard = new JTextArea();
+        displayBoard.setEditable(false);
+        displayBoard.setBounds(12, 25, 530, 495);
         JScrollPane scrollPane = new JScrollPane(
-                clientMessageBoard,
+                displayBoard,
                 JScrollPane.VERTICAL_SCROLLBAR_ALWAYS,
                 JScrollPane.HORIZONTAL_SCROLLBAR_ALWAYS);
-        scrollPane.setViewportView(clientMessageBoard);
+        scrollPane.setViewportView(displayBoard);
         frame.getContentPane().add(scrollPane);
-        frame.getContentPane().add(clientMessageBoard);
+        frame.getContentPane().add(displayBoard);
 
-        clientTypingBoard = new JTextField();
-        clientTypingBoard.setHorizontalAlignment(SwingConstants.LEFT);
-        clientTypingBoard.setBounds(12, 533, 530, 84);
-        frame.getContentPane().add(clientTypingBoard);
-        clientTypingBoard.setColumns(10);
+        typingBoard = new JTextField();
+        typingBoard.setHorizontalAlignment(SwingConstants.LEFT);
+        typingBoard.setBounds(12, 533, 530, 84);
+        frame.getContentPane().add(typingBoard);
+        typingBoard.setColumns(10);
 
-        JButton clientSendMsgBtn = new JButton("Send");
+        JButton sendMessageButton = new JButton("Send");
         // action to be taken on send message button
-        clientSendMsgBtn.addActionListener(e -> {
-            String textAreaMessage = clientTypingBoard.getText(); // get the message from textbox
+        sendMessageButton.addActionListener(e -> {
+            String textAreaMessage = typingBoard.getText(); // get the message from textbox
             if (textAreaMessage != null && !textAreaMessage.isEmpty()) {  // only if message is not empty then send it further otherwise do nothing
                 try {
                     String messageToBeSentToServer = "";
                     String cast = "multicast"; // this will be an identifier to identify type of message
                     int flag = 0; // flag used to check whether used has selected any client or not for multicast
 
-                    List<String> clientList = clientActiveUsersList.getSelectedValuesList(); // get all the users selected on UI
+                    List<String> clientList = activeUsersList.getSelectedValuesList(); // get all the users selected on UI
                     if (clientList.size() == 0) // if no user is selected then set the flag for further use
                         flag = 1;
                     for (String selectedUsr : clientList) { // append all the usernames selected in a variable
@@ -149,51 +167,36 @@ public class ClientView extends JFrame {
                         JOptionPane.showMessageDialog(frame, "No user selected");
                     } else { // otherwise just send the message to the user
                         outStream.writeUTF(messageToBeSentToServer);
-                        clientTypingBoard.setText("");
-                        clientMessageBoard.append(textAreaMessage + "\n"); //show the sent message to the sender's message board
-                        saveMessagetoDatabase(formDetails, textAreaMessage);
+                        typingBoard.setText("");
+                        displayBoard.append(textAreaMessage + "\n"); //show the sent message to the sender's message board
+                        saveMessages(connexionFormDetails, textAreaMessage);
                     }
                     selectedUsers = ""; // clear the all the client ids
                 } catch (Exception ex) {
-                    JOptionPane.showMessageDialog(frame, "model.FormDetails does not exist anymore."); // if user doesn't exist then show message
+                    JOptionPane.showMessageDialog(frame, "model.ConnexionFormDetails does not exist anymore."); // if user doesn't exist then show message
                 }
             }
         });
-        clientSendMsgBtn.setBounds(554, 533, 137, 84);
-        frame.getContentPane().add(clientSendMsgBtn);
+        sendMessageButton.setBounds(554, 533, 137, 84);
+        frame.getContentPane().add(sendMessageButton);
 
-        clientActiveUsersList = new JList();
-        clientActiveUsersList.setToolTipText("Active Users");
-        clientActiveUsersList.setBounds(554, 63, 327, 457);
-        clientActiveUsersList.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
+        activeUsersList = new JList();
+        activeUsersList.setToolTipText("Active Users");
+        activeUsersList.setBounds(554, 63, 327, 457);
+        activeUsersList.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
 
-        clientActiveUsersList.addListSelectionListener(new ListSelectionListener() {
+        activeUsersList.addListSelectionListener(new ListSelectionListener() {
             @Override
             public void valueChanged(ListSelectionEvent e) {
                 if (!e.getValueIsAdjusting()) {
-                    String selectedUser = (String) clientActiveUsersList.getSelectedValue();
-                    loadChatHistoryFromDatabase(selectedUser);
+                    String selectedUser = (String) activeUsersList.getSelectedValue();
+                    loadChatHistory(selectedUser);
                 }
             }
         });
 
 
-        frame.getContentPane().add(clientActiveUsersList);
-
-        clientKillProcessBtn = new JButton("Kill Process");
-        // kill process event
-        clientKillProcessBtn.addActionListener(e -> {
-            try {
-                outStream.writeUTF("exit"); // closes the thread and show the message on server and client's message
-                // board
-                clientMessageBoard.append("You are disconnected now.\n");
-                frame.dispose(); // close the frame
-            } catch (IOException e1) {
-                e1.printStackTrace();
-            }
-        });
-        clientKillProcessBtn.setBounds(703, 533, 193, 84);
-        frame.getContentPane().add(clientKillProcessBtn);
+        frame.getContentPane().add(activeUsersList);
 
         JLabel lblNewLabel = new JLabel("Active Users");
         lblNewLabel.setHorizontalAlignment(SwingConstants.LEFT);
@@ -203,8 +206,8 @@ public class ClientView extends JFrame {
         frame.setVisible(true);
     }
 
-    private void saveMessagetoDatabase(FormDetails formDetails, String textAreaMessage) {
-        User sender = userDAO.findByName(formDetails.getName());
+    private void saveMessages(ConnexionFormDetails connexionFormDetails, String textAreaMessage) {
+        User sender = userDAO.findByName(connexionFormDetails.getName());
         List<String> receiversName = Arrays.stream(selectedUsers.split(",")).toList();
         List<User> receivers = userDAO.findByNames(receiversName);
         List<Message> messages = new ArrayList<>();
@@ -219,27 +222,22 @@ public class ClientView extends JFrame {
         messageDao.saveMessages(messages);
     }
 
-    private void loadChatHistoryFromDatabase(String receiverName) {
-        if (senderName.isEmpty() || receiverName.isEmpty()) {
+    private void loadChatHistory(String receiverName) {
+        if (senderName == null || senderName.isEmpty() || receiverName == null || receiverName.isEmpty()) {
             JOptionPane.showMessageDialog(frame, "Please select a receiver");
         }
         User sender = userDAO.findByName(senderName);
         User receiver = userDAO.findByName(receiverName);
         List<Message> messages = messageDao.findMessagesByNames(sender, receiver);
-        // Clear the chat history in the UI
-        clientMessageBoard.setText("");
-
-        // Populate the chat history in the UI
+        displayBoard.setText("");
         for (Message msg : messages) {
-            // This is just an example of how you can format the messages,
-            // you might want to modify this to match how you wants to display the messages
             String chatLog = "";
             if (sender.getUserId() == msg.getSender().getUserId()) {
                 chatLog = String.format("%s\n", msg.getMessageBody());
             } else {
                 chatLog = String.format("< %s >%s\n", msg.getSender().getUserName(), msg.getMessageBody());
             }
-            clientMessageBoard.append(chatLog);
+            displayBoard.append(chatLog);
         }
     }
 }
