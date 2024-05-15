@@ -22,46 +22,15 @@ public class ServerView {
     // usernames used and their socket connections
     private static Set<String> activeUserSet = new HashSet<>(); // this set keeps track of all the active users
     private static int port = 8818;  // port number to be used
-
-    private JFrame frame; // jframe variable
-
     private ServerSocket serverSocket; //server socket variable
-
-    private JTextArea serverMessageBoard; // variable for server message board on UI
-
-    private JList allUserNameList;  // variable on UI
-
-    private JList activeClientList; // variable on UI
-
     private DefaultListModel<String> activeDlm = new DefaultListModel<String>(); // keeps list of active users for display on UI
-
     private DefaultListModel<String> allDlm = new DefaultListModel<String>(); // keeps list of all users for display on UI
 
-    /**
-     * Launch the application.
-     */
-    public static void main(String[] args) {  // functions starts here
-        EventQueue.invokeLater(() -> {
-            try {
-                ServerView window = new ServerView();  // object creation
-                window.frame.setVisible(true); // make jframe visible
-            } catch (Exception e) {
-                e.printStackTrace();
-            }
-        });
-    }
-
-
-    /**
-     * Create the application.
-     */
     public ServerView() {
 
-        initialize();  // components of swing app will be initialized here.
         try {
             serverSocket = new ServerSocket(port);  // create a socket for server
-            serverMessageBoard.append("Server started on port: " + port + "\n"); // print messages to server message board
-            serverMessageBoard.append("Waiting for the clients...\n");
+
             new ClientAccept().start(); // this will create a thread for client
         } catch (Exception e) {
             e.printStackTrace();
@@ -85,9 +54,6 @@ public class ServerView {
                         activeDlm.addElement(uName); // add this user to the active user JList
                         if (!allDlm.contains(uName)) // if username taken previously then don't add to allUser JList otherwise add it
                             allDlm.addElement(uName);
-                        activeClientList.setModel(activeDlm); // show the active and allUser List to the swing app in JList
-                        allUserNameList.setModel(allDlm);
-                        serverMessageBoard.append("Client " + uName + " Connected...\n"); // print message on server that new client has been connected.
                         new MsgRead(clientSocket, uName).start(); // create a thread to read messages
                         new PrepareCLientList().start(); //create a thread to update all the active clients
                     }
@@ -111,7 +77,7 @@ public class ServerView {
 
         @Override
         public void run() {
-            while (allUserNameList != null && !allUsersList.isEmpty()) {  // if allUserList is not empty then proceed further
+            while (!allUsersList.isEmpty()) {  // if allUserList is not empty then proceed further
                 try {
                     String message = new DataInputStream(s.getInputStream()).readUTF(); // read message from client
                     System.out.println("message read ==> " + message); // just print the message for testing
@@ -131,8 +97,6 @@ public class ServerView {
                         }
                     } else if (msgList[0].equalsIgnoreCase("exit")) { // if a client's process is killed then notify other clients
                         activeUserSet.remove(Id); // remove that client from active usre set
-                        serverMessageBoard.append(Id + " disconnected....\n"); // print message on server message board
-
                         new PrepareCLientList().start(); // update the active and all user list on UI
 
                         Iterator<String> itr = activeUserSet.iterator(); // iterate over other active users
@@ -149,15 +113,13 @@ public class ServerView {
                             }
                         }
                         activeDlm.removeElement(Id); // remove client from Jlist for server
-                        activeClientList.setModel(activeDlm); //update the active user list
                     }
                 } catch (EOFException e) {
-                    JOptionPane.showMessageDialog(frame, "Client " + Id + " has disconnected."); // if user doesn't exist then show message
+                    System.out.println("Client " + Id + " has disconnected."); // if user doesn't exist then show message
 
-                    System.out.println("Client " + Id + " has disconnected.");
                     break; // exit the loop, otherwise it will generate constant stream of the same error
                 } catch (SocketException e) {
-                    JOptionPane.showMessageDialog(frame, "Lost connection to client " + Id);
+                    System.out.println("Lost connection to client " + Id);
                     break; // exit the loop
                 } catch (IOException e) {
                     e.printStackTrace();
@@ -198,38 +160,5 @@ public class ServerView {
         }
     }
 
-    /**
-     * Initialize the contents of the frame.
-     */
-    private void initialize() { //here components of Swing App UI are initilized
-        frame = new JFrame();
-        frame.setBounds(100, 100, 796, 530);
-        frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-        frame.getContentPane().setLayout(null);
-        frame.setTitle("Server View");
 
-        serverMessageBoard = new JTextArea();
-        serverMessageBoard.setEditable(false);
-        serverMessageBoard.setBounds(12, 29, 489, 435);
-        frame.getContentPane().add(serverMessageBoard);
-        serverMessageBoard.setText("Starting the Server...\n");
-
-        allUserNameList = new JList();
-        allUserNameList.setBounds(526, 324, 218, 140);
-        frame.getContentPane().add(allUserNameList);
-
-        activeClientList = new JList();
-        activeClientList.setBounds(526, 78, 218, 156);
-        frame.getContentPane().add(activeClientList);
-
-        JLabel lblNewLabel = new JLabel("All Usernames");
-        lblNewLabel.setHorizontalAlignment(SwingConstants.LEFT);
-        lblNewLabel.setBounds(530, 295, 127, 16);
-        frame.getContentPane().add(lblNewLabel);
-
-        JLabel lblNewLabel_1 = new JLabel("Active Users");
-        lblNewLabel_1.setBounds(526, 53, 98, 23);
-        frame.getContentPane().add(lblNewLabel_1);
-
-    }
 }

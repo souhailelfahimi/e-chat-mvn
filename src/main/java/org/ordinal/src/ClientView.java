@@ -46,7 +46,7 @@ public class ClientView extends JFrame {
         this.senderName = formDetails.getName();
         SaveUser();
         try {
-            frame.setTitle("Client View - " + senderName); // set title of UI
+            frame.setTitle("e-chat : " + senderName + (formDetails.isClient() ? "" : " " + formDetails.getIp() + ":" + formDetails.getPort())); // set title of UI
             dm = new DefaultListModel<String>(); // default list used for showing active users on UI
             clientActiveUsersList.setModel(dm);// show that list on UI component JList named clientActiveUsersList
             inputStream = new DataInputStream(s.getInputStream()); // initilize input and output stream
@@ -109,6 +109,12 @@ public class ClientView extends JFrame {
         clientMessageBoard = new JTextArea();
         clientMessageBoard.setEditable(false);
         clientMessageBoard.setBounds(12, 25, 530, 495);
+        JScrollPane scrollPane = new JScrollPane(
+                clientMessageBoard,
+                JScrollPane.VERTICAL_SCROLLBAR_ALWAYS,
+                JScrollPane.HORIZONTAL_SCROLLBAR_ALWAYS);
+        scrollPane.setViewportView(clientMessageBoard);
+        frame.getContentPane().add(scrollPane);
         frame.getContentPane().add(clientMessageBoard);
 
         clientTypingBoard = new JTextField();
@@ -214,7 +220,7 @@ public class ClientView extends JFrame {
     }
 
     private void loadChatHistoryFromDatabase(String receiverName) {
-        if(senderName.isEmpty() || receiverName.isEmpty()){
+        if (senderName.isEmpty() || receiverName.isEmpty()) {
             JOptionPane.showMessageDialog(frame, "Please select a receiver");
         }
         User sender = userDAO.findByName(senderName);

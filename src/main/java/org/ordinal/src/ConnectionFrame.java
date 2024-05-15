@@ -14,7 +14,6 @@ public class ConnectionFrame extends JFrame {
 
     // Components of the Form
     private Container c;
-    private JLabel title;
     private JLabel name;
     private JTextField tname;
     private JLabel ip;
@@ -23,7 +22,6 @@ public class ConnectionFrame extends JFrame {
     private JRadioButton server;
     private JRadioButton client;
     private ButtonGroup gengp;
-    private JTextArea tadd;
     private JLabel res;
     private JTextField tport;
     private JLabel port;
@@ -33,19 +31,13 @@ public class ConnectionFrame extends JFrame {
     // constructor, to initialize the components
     // with default values.
     public ConnectionFrame() {
-        setTitle("Registration Form");
+        setTitle("E-chat Connexion");
         setBounds(300, 90, 483, 331);
         setDefaultCloseOperation(EXIT_ON_CLOSE);
         setResizable(false);
 
         c = getContentPane();
         c.setLayout(null);
-
-        title = new JLabel("E-chat Connexion");
-        title.setFont(new Font("Arial", Font.PLAIN, 30));
-        title.setSize(300, 30);
-        title.setLocation(133, 28);
-        c.add(title);
 
         name = new JLabel("Nom");
         name.setFont(new Font("Arial", Font.PLAIN, 20));
@@ -135,7 +127,7 @@ public class ConnectionFrame extends JFrame {
                 FormDetails formDetails;
                 if (server.isSelected()) {
                     formDetails = FormDetails.builder().name(tname.getText()).ip(defaultIp).port(defaultPort).isClient(false).build();
-                    ServerView.main(null);
+                    new ServerView();
                     LoginClient.startNewClient(formDetails);
                 } else {
                     String ip = tIp.getText().isEmpty() ? defaultIp : tIp.getText();
