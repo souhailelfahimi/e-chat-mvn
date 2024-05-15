@@ -1,15 +1,12 @@
 package org.ordinal.src.view;
 
-import org.ordinal.src.db.DatabaseService;
-import org.ordinal.src.db.MessageDao;
-import org.ordinal.src.db.UserDAO;
 import org.ordinal.src.model.ConnexionFormDetails;
 import org.ordinal.src.model.Message;
 import org.ordinal.src.model.User;
+import org.ordinal.src.service.MessageService;
+import org.ordinal.src.service.UserService;
 
 import javax.swing.*;
-import javax.swing.event.ListSelectionEvent;
-import javax.swing.event.ListSelectionListener;
 import java.awt.event.WindowAdapter;
 import java.awt.event.WindowEvent;
 import java.io.DataInputStream;
@@ -21,78 +18,68 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.StringTokenizer;
+import java.util.logging.Logger;
+
+import static org.ordinal.src.Server.IDENTIFIER_PREFIX;
 
 
 public class ClientView extends JFrame {
-
+    Logger logger = Logger.getLogger(ClientView.class.getName());
     private JFrame frame;
     private JTextField typingBoard;
     private JList activeUsersList;
     private JTextArea displayBoard;
+    private JButton sendMessageButton;
     private DataInputStream inputStream;
     private DataOutputStream outStream;
-    private DefaultListModel<String> dm;
+    private DefaultListModel<String> activeUsersModel;
     private String senderName, selectedUsers = "";
     private ConnexionFormDetails connexionFormDetails;
-    private UserDAO userDAO;
-    private MessageDao messageDao;
+    private UserService userService;
+    private MessageService messageService;
     private List<User> allUsers;
     private Socket socketConnection;
 
     public ClientView(ConnexionFormDetails connexionFormDetails, Socket socketConnection) {
+        this.userService = new UserService();
+        this.messageService = new MessageService();
         this.socketConnection = socketConnection;
-        DatabaseService databaseService = new DatabaseService();
-        userDAO = new UserDAO(databaseService);
-        messageDao = new MessageDao(databaseService);
         this.connexionFormDetails = connexionFormDetails;
-        initialize(); // initilize UI components
+        buildUI();
         this.senderName = connexionFormDetails.getName();
         SaveUser();
         try {
             frame.setTitle("e-chat : " + senderName + (connexionFormDetails.isClient() ? "" : " " + connexionFormDetails.getIp() + ":" + connexionFormDetails.getPort())); // set title of UI
-            dm = new DefaultListModel<String>(); // default list used for showing active users on UI
-            activeUsersList.setModel(dm);// show that list on UI component JList named clientActiveUsersList
+            activeUsersModel = new DefaultListModel<String>(); // default list used for showing active users on UI
+            activeUsersList.setModel(activeUsersModel);// show that list on UI component JList named clientActiveUsersList
             inputStream = new DataInputStream(socketConnection.getInputStream()); // initilize input and output stream
             outStream = new DataOutputStream(socketConnection.getOutputStream());
-            new Read().start(); // create a new thread for reading the messages
+            new ServerMessageListener().start(); // create a new thread for reading the messages
         } catch (Exception ex) {
             ex.printStackTrace();
         }
     }
 
     private void SaveUser() {
-        allUsers = userDAO.getAllUsers();
+        allUsers = userService.getAllUsers();
         boolean userExistsInDatabase = allUsers.stream().anyMatch(user -> user.getUserName().equals(senderName));
-
         if (!userExistsInDatabase) {
             User newUser = new User();
             newUser.setUserName(senderName);
-            userDAO.saveUser(newUser);
+            userService.addUser(newUser);
         }
     }
 
-    class Read extends Thread {
+    class ServerMessageListener extends Thread {
+
         @Override
         public void run() {
             while (true) {
                 try {
-                    String m = inputStream.readUTF();  // read message from server, this will contain :;.,/=<comma seperated clientsIds>
-                    System.out.println("inside read thread : " + m); // print message for testing purpose
-                    if (m.contains(":;.,/=")) { // prefix(i know its random)
-                        m = m.substring(6); // comma separated all active user ids
-                        dm.clear(); // clear the list before inserting fresh elements
-                        StringTokenizer st = new StringTokenizer(m, ","); // split all the clientIds and add to dm below
-                        while (st.hasMoreTokens()) {
-                            String u = st.nextToken();
-                            if (!senderName.equals(u)) // we do not need to show own user id in the active user list pane
-                                dm.addElement(u); // add all the active user ids to the defaultList to display on active
-                            // user pane on client view
-                        }
-                    } else {
-                        displayBoard.append("" + m + "\n"); //otherwise print on the clients message board
-                    }
+                    String message = readMessage();
+                    processMessage(message);
                 } catch (SocketException e) {
-                    displayBoard.append("(Info) : Communication terminée");
+                    displayBoard.append("(Info) : Communication terminated");
                     break;
                 } catch (Exception e) {
                     e.printStackTrace();
@@ -100,30 +87,45 @@ public class ClientView extends JFrame {
                 }
             }
         }
+
+        private String readMessage() throws IOException {
+            return inputStream.readUTF();
+        }
+
+        private void processMessage(String message) {
+            if (isUserListMessage(message)) {
+                updateUserListView(message.substring(6));
+            } else {
+                displayBoard.append(message + "\n");
+            }
+        }
+
+        private boolean isUserListMessage(String message) {
+            return message.contains(IDENTIFIER_PREFIX);
+        }
+
+        private void updateUserListView(String userList) {
+            activeUsersModel.clear();
+            StringTokenizer tokenizer = new StringTokenizer(userList, ",");
+            while (tokenizer.hasMoreTokens()) {
+                addUserToView(tokenizer.nextToken());
+            }
+        }
+
+        private void addUserToView(String userName) {
+            if (!senderName.equals(userName))
+                activeUsersModel.addElement(userName);
+        }
     }
 
-    /**
-     * Initialize the contents of the frame.
-     */
-    private void initialize() { // initialize all the components of UI
+
+    private void buildUI() {
         frame = new JFrame();
         frame.setBounds(100, 100, 926, 705);
         frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         frame.getContentPane().setLayout(null);
         frame.setTitle("Client View");
-        frame.addWindowListener(new WindowAdapter() {
-            @Override
-            public void windowClosing(WindowEvent e) {
-                try {
-                    outStream.writeUTF("exit"); // closes the thread and show the message on server and client's message
-                    // board
-                    displayBoard.append("You are disconnected now.\n");
-                    frame.dispose(); // close the frame
-                } catch (IOException e1) {
-                    e1.printStackTrace();
-                }
-            }
-        });
+
         displayBoard = new JTextArea();
         displayBoard.setEditable(false);
         displayBoard.setBounds(12, 25, 530, 495);
@@ -141,42 +143,7 @@ public class ClientView extends JFrame {
         frame.getContentPane().add(typingBoard);
         typingBoard.setColumns(10);
 
-        JButton sendMessageButton = new JButton("Send");
-        // action to be taken on send message button
-        sendMessageButton.addActionListener(e -> {
-            String textAreaMessage = typingBoard.getText(); // get the message from textbox
-            if (textAreaMessage != null && !textAreaMessage.isEmpty()) {  // only if message is not empty then send it further otherwise do nothing
-                try {
-                    String messageToBeSentToServer = "";
-                    String cast = "multicast"; // this will be an identifier to identify type of message
-                    int flag = 0; // flag used to check whether used has selected any client or not for multicast
-
-                    List<String> clientList = activeUsersList.getSelectedValuesList(); // get all the users selected on UI
-                    if (clientList.size() == 0) // if no user is selected then set the flag for further use
-                        flag = 1;
-                    for (String selectedUsr : clientList) { // append all the usernames selected in a variable
-                        if (selectedUsers.isEmpty())
-                            selectedUsers += selectedUsr;
-                        else
-                            selectedUsers += "," + selectedUsr;
-                    }
-                    messageToBeSentToServer = cast + ":" + selectedUsers + ":" + textAreaMessage; // prepare message to be sent to server
-
-
-                    if (flag == 1) { // for multicast check if no user was selected then prompt a message dialog
-                        JOptionPane.showMessageDialog(frame, "No user selected");
-                    } else { // otherwise just send the message to the user
-                        outStream.writeUTF(messageToBeSentToServer);
-                        typingBoard.setText("");
-                        displayBoard.append(textAreaMessage + "\n"); //show the sent message to the sender's message board
-                        saveMessages(connexionFormDetails, textAreaMessage);
-                    }
-                    selectedUsers = ""; // clear the all the client ids
-                } catch (Exception ex) {
-                    JOptionPane.showMessageDialog(frame, "model.ConnexionFormDetails does not exist anymore."); // if user doesn't exist then show message
-                }
-            }
-        });
+        sendMessageButton = new JButton("Send");
         sendMessageButton.setBounds(554, 533, 137, 84);
         frame.getContentPane().add(sendMessageButton);
 
@@ -185,31 +152,20 @@ public class ClientView extends JFrame {
         activeUsersList.setBounds(554, 63, 327, 457);
         activeUsersList.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
 
-        activeUsersList.addListSelectionListener(new ListSelectionListener() {
-            @Override
-            public void valueChanged(ListSelectionEvent e) {
-                if (!e.getValueIsAdjusting()) {
-                    String selectedUser = (String) activeUsersList.getSelectedValue();
-                    loadChatHistory(selectedUser);
-                }
-            }
-        });
-
 
         frame.getContentPane().add(activeUsersList);
-
         JLabel lblNewLabel = new JLabel("Active Users");
         lblNewLabel.setHorizontalAlignment(SwingConstants.LEFT);
         lblNewLabel.setBounds(559, 43, 95, 16);
         frame.getContentPane().add(lblNewLabel);
-
         frame.setVisible(true);
+        initialiseActions();
     }
 
     private void saveMessages(ConnexionFormDetails connexionFormDetails, String textAreaMessage) {
-        User sender = userDAO.findByName(connexionFormDetails.getName());
+        User sender = userService.getUserByName(connexionFormDetails.getName());
         List<String> receiversName = Arrays.stream(selectedUsers.split(",")).toList();
-        List<User> receivers = userDAO.findByNames(receiversName);
+        List<User> receivers = userService.getUserByNames(receiversName);
         List<Message> messages = new ArrayList<>();
         for (User receiver : receivers) {
             Message message = Message.builder()
@@ -219,25 +175,91 @@ public class ClientView extends JFrame {
                     .build();
             messages.add(message);
         }
-        messageDao.saveMessages(messages);
+        messageService.saveMessages(messages);
     }
 
     private void loadChatHistory(String receiverName) {
-        if (senderName == null || senderName.isEmpty() || receiverName == null || receiverName.isEmpty()) {
-            JOptionPane.showMessageDialog(frame, "Please select a receiver");
+        if (isValidUserName(senderName) || isValidUserName(receiverName)) {
+            displayBoard.setText("");
+            activeUsersList.setModel(activeUsersModel);
+        } else {
+            fetchAndFormatMessages(receiverName);
         }
-        User sender = userDAO.findByName(senderName);
-        User receiver = userDAO.findByName(receiverName);
-        List<Message> messages = messageDao.findMessagesByNames(sender, receiver);
+    }
+
+    private boolean isValidUserName(String name) {
+        return name == null || name.isEmpty();
+    }
+
+    private void fetchAndFormatMessages(String receiverName) {
+        User sender = userService.getUserByName(senderName);
+        User receiver = userService.getUserByName(receiverName);
+        List<Message> messages = messageService.getMessagesBySenderAndReceiver(sender, receiver);
         displayBoard.setText("");
         for (Message msg : messages) {
-            String chatLog = "";
-            if (sender.getUserId() == msg.getSender().getUserId()) {
-                chatLog = String.format("%s\n", msg.getMessageBody());
-            } else {
-                chatLog = String.format("< %s >%s\n", msg.getSender().getUserName(), msg.getMessageBody());
-            }
+            int senderId = msg.getSender().getUserId();
+            String senderName = msg.getSender().getUserName();
+            String messageBody = msg.getMessageBody();
+
+            String chatLog = (sender.getUserId() == senderId) ?
+                    String.format("%s\n", messageBody) :
+                    String.format("< %s >%s\n", senderName, messageBody);
+
             displayBoard.append(chatLog);
         }
+    }
+
+    public void initialiseActions() {
+        frame.addWindowListener(new WindowAdapter() {
+            @Override
+            public void windowClosing(WindowEvent e) {
+                try {
+                    outStream.writeUTF("exit");
+                    displayBoard.append("You are disconnected now.\n");
+                    frame.dispose();
+                } catch (IOException ioException) {
+                    logger.info("Unable to disconnect properly: " + ioException.getMessage());
+                }
+            }
+        });
+
+        sendMessageButton.addActionListener(e -> {
+            String message = typingBoard.getText();
+            if (message != null && !message.isEmpty()) {
+                try {
+                    List<String> selectedUsersList = activeUsersList.getSelectedValuesList();
+                    boolean noUserSelected = selectedUsersList.isEmpty();
+                    StringBuilder selectedUsersBuilder = new StringBuilder();
+                    for (String selectedUser : selectedUsersList) {
+                        if (!selectedUsersBuilder.isEmpty()) {
+                            selectedUsersBuilder.append(",");
+                        }
+                        selectedUsersBuilder.append(selectedUser);
+                    }
+                    String messageToBeSentToServer = prepareMessageToServer("multicast", selectedUsersBuilder.toString(), message);
+                    if (noUserSelected) {
+                        JOptionPane.showMessageDialog(frame, "No user selected");
+                    } else {
+                        outStream.writeUTF(messageToBeSentToServer);
+                        typingBoard.setText("");
+                        displayBoard.append(message + "\n");
+                        saveMessages(connexionFormDetails, message);
+                    }
+                } catch (Exception ex) {
+                    JOptionPane.showMessageDialog(frame, "model.ConnexionFormDetails does not exist anymore.");
+                }
+            }
+        });
+
+        activeUsersList.addListSelectionListener(e -> {
+            if (!e.getValueIsAdjusting()) {
+                String selectedUser = (String) activeUsersList.getSelectedValue();
+                loadChatHistory(selectedUser);
+            }
+        });
+    }
+
+    private String prepareMessageToServer(String cast, String selectedUsers, String message) {
+        return cast + ":" + selectedUsers + ":" + message;
     }
 }

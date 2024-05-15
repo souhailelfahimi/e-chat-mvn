@@ -1,6 +1,5 @@
 package org.ordinal.src.db;
 
-import org.ordinal.src.model.Message;
 import org.ordinal.src.model.User;
 
 import java.sql.Connection;
@@ -18,7 +17,7 @@ public class UserDAO {
         this.databaseService = databaseService;
     }
 
-    public List<User> getAllUsers() {
+    public List<User> findAll() {
         List<User> users = new ArrayList<>();
         String sql = "SELECT * FROM users";
 
@@ -112,7 +111,6 @@ public class UserDAO {
 
         return user;
     }
-
 
 
 }

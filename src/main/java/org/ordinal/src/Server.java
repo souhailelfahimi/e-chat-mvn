@@ -13,150 +13,180 @@ import java.util.Iterator;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.logging.Logger;
 
 
 public class Server {
-
-    private static Map<String, Socket> clientSockets = new ConcurrentHashMap<>(); // keeps the mapping of all the
-    // usernames used and their socket connections
-    private static Set<String> activeUsers = new HashSet<>(); // this set keeps track of all the active users
-    private static int port = 8818;  // port number to be used
-    private ServerSocket serverSocket; //server socket variable
-    private DefaultListModel<String> activeDlm = new DefaultListModel<String>(); // keeps list of active users for display on UI
-    private DefaultListModel<String> allDlm = new DefaultListModel<String>(); // keeps list of all users for display on UI
+    public static final String IDENTIFIER_PREFIX = ":;.,/=";
+    private static Map<String, Socket> clientSocketMap = new ConcurrentHashMap<>();
+    private static Set<String> activeUsers = new HashSet<>();
+    private static int port = 8818;
+    private ServerSocket serverSocket;
+    private Logger logger = Logger.getLogger(Server.class.getName());
 
     public Server() {
-
         try {
-            serverSocket = new ServerSocket(port);  // create a socket for server
-            new ClientAccept().start(); // this will create a thread for client
+            serverSocket = new ServerSocket(port);
+            new ClientConnectionThread().start();
         } catch (Exception e) {
             e.printStackTrace();
         }
     }
 
-    class ClientAccept extends Thread {
+    class ClientConnectionThread extends Thread {
+        private static final String USERNAME_ALREADY_TAKEN = "Username already taken";
+
         @Override
         public void run() {
             while (true) {
                 try {
-                    Socket clientSocket = serverSocket.accept();  // create a socket for client
-                    String uName = new DataInputStream(clientSocket.getInputStream()).readUTF(); // this will receive the username sent from client register view
-                    DataOutputStream cOutStream = new DataOutputStream(clientSocket.getOutputStream()); // create an output stream for client
-                    if (activeUsers != null && activeUsers.contains(uName)) { // if username is in use then we need to prompt user to enter new name
-                        cOutStream.writeUTF("Username already taken");
+                    Socket clientSocket = serverSocket.accept();
+                    String username = new DataInputStream(clientSocket.getInputStream()).readUTF();
+                    DataOutputStream clientOutputStream = new DataOutputStream(clientSocket.getOutputStream());
+
+                    if (isUsernameTaken(username)) {
+                        clientOutputStream.writeUTF(USERNAME_ALREADY_TAKEN);
                     } else {
-                        clientSockets.put(uName, clientSocket); // add new user to allUserList and activeUserSet
-                        activeUsers.add(uName);
-                        cOutStream.writeUTF(""); // clear the existing message
-                        activeDlm.addElement(uName); // add this user to the active user JList
-                        if (!allDlm.contains(uName)) // if username taken previously then don't add to allUser JList otherwise add it
-                            allDlm.addElement(uName);
-                        new MsgRead(clientSocket, uName).start(); // create a thread to read messages
-                        new PrepareCLientList().start(); //create a thread to update all the active clients
+                        addUser(clientSocket, username, clientOutputStream);
+                        createClientThreads(username, clientSocket);
                     }
-                } catch (IOException ioex) {  // throw any exception occurs
+                } catch (IOException ioex) {
                     ioex.printStackTrace();
                 } catch (Exception e) {
                     e.printStackTrace();
                 }
             }
         }
+
+        private boolean isUsernameTaken(String username) {
+            return activeUsers != null && activeUsers.contains(username);
+        }
+
+        private void addUser(Socket clientSocket, String username, DataOutputStream clientOutputStream) throws IOException {
+            clientSocketMap.put(username, clientSocket);
+            activeUsers.add(username);
+            clientOutputStream.writeUTF("");
+        }
+
+        private void createClientThreads(String username, Socket clientSocket) {
+            new ClientMessageListenerThread(clientSocket, username).start();
+            new ActiveUserListThread().start();
+        }
     }
 
-    class MsgRead extends Thread { // this class reads the messages coming from client and take appropriate actions
+    class ClientMessageListenerThread extends Thread {
         Socket socket;
-        String Id;
+        String userName;
 
-        private MsgRead(Socket s, String uname) { // socket and username will be provided by client
+        private ClientMessageListenerThread(Socket s, String userName) { // socket and username will be provided by client
             this.socket = s;
-            this.Id = uname;
+            this.userName = userName;
         }
+
+        private static final String ACTION_MULTICAST = "multicast";
+        private static final String ACTION_EXIT = "exit";
 
         @Override
         public void run() {
-            while (!clientSockets.isEmpty()) {  // if allUserList is not empty then proceed further
+            while (!clientSocketMap.isEmpty()) {
                 try {
-                    String message = new DataInputStream(socket.getInputStream()).readUTF(); // read message from client
-                    System.out.println("message read ==> " + message); // just print the message for testing
-                    String[] msgList = message.split(":"); // I have used my own identifier to identify what action to take on the received message from client
-                    // i have appended actionToBeTaken:clients_for_receiving_msg:message
-                    if (msgList[0].equalsIgnoreCase("multicast")) { // if action is multicast then send messages to selected active users
-                        String[] sendToList = msgList[1].split(","); //this variable contains list of clients which will receive message
-                        for (String usr : sendToList) { // for every user send message
-                            try {
-                                if (activeUsers.contains(usr)) { // check again if user is active then send the message
-                                    new DataOutputStream(((Socket) clientSockets.get(usr)).getOutputStream())
-                                            .writeUTF("< " + Id + " >" + msgList[2]); // put message in output stream
-                                }
-                            } catch (Exception e) { // throw exceptions
-                                e.printStackTrace();
-                            }
-                        }
-                    } else if (msgList[0].equalsIgnoreCase("exit")) { // if a client's process is killed then notify other clients
-                        activeUsers.remove(Id); // remove that client from active usre set
-                        new PrepareCLientList().start(); // update the active and all user list on UI
+                    String message = new DataInputStream(socket.getInputStream()).readUTF();
+                    logger.info("message read ==> " + message);
+                    String[] msgList = message.split(":");
 
-                        Iterator<String> itr = activeUsers.iterator(); // iterate over other active users
-                        while (itr.hasNext()) {
-                            String usrName2 = (String) itr.next();
-                            if (!usrName2.equalsIgnoreCase(Id)) { // we don't need to send this message to ourself
-                                try {
-                                    new DataOutputStream(((Socket) clientSockets.get(usrName2)).getOutputStream())
-                                            .writeUTF(Id + " disconnected..."); // notify all other active user for disconnection of a user
-                                } catch (Exception e) { // throw errors
-                                    e.printStackTrace();
-                                }
-                                new PrepareCLientList().start(); // update the active user list for every client after a user is disconnected
-                            }
-                        }
-                        activeDlm.removeElement(Id); // remove client from Jlist for server
+                    if (msgList[0].equalsIgnoreCase(ACTION_MULTICAST)) {
+                        handleMulticastAction(msgList, userName);
+                    } else if (msgList[0].equalsIgnoreCase(ACTION_EXIT)) {
+                        handleExitAction(userName);
                     }
                 } catch (EOFException e) {
-                    System.out.println("Client " + Id + " has disconnected."); // if user doesn't exist then show message
-                    break; // exit the loop, otherwise it will generate constant stream of the same error
+                    logger.warning("Client " + userName + " has disconnected.");
+                    break;
                 } catch (SocketException e) {
-                    System.out.println("Lost connection to client " + Id);
-                    break; // exit the loop
+                    logger.warning("Lost connection to client " + userName);
+                    break;
                 } catch (IOException e) {
                     e.printStackTrace();
                     break;
                 } catch (Exception e) {
                     e.printStackTrace();
                 }
-
             }
         }
-    }
 
-    class PrepareCLientList extends Thread { // it prepares the list of active user to be displayed on the UI
-        @Override
-        public void run() {
-            try {
-                String ids = "";
-                Iterator itr = activeUsers.iterator(); // iterate over all active users
-                while (itr.hasNext()) { // prepare string of all the users
-                    String key = (String) itr.next();
-                    ids += key + ",";
+        private void handleMulticastAction(String[] msgList, String userName) {
+            String[] sendToList = msgList[1].split(",");
+            for (String user : sendToList) {
+                try {
+                    if (activeUsers.contains(user)) {
+                        new DataOutputStream(clientSocketMap.get(user).getOutputStream())
+                                .writeUTF("< " + userName + " >" + msgList[2]);
+                    }
+                } catch (Exception e) {
+                    e.printStackTrace();
                 }
-                if (!ids.isEmpty()) { // just trimming the list for the safe side.
-                    ids = ids.substring(0, ids.length() - 1);
-                }
-                itr = activeUsers.iterator();
-                while (itr.hasNext()) { // iterate over all active users
-                    String key = (String) itr.next();
+            }
+        }
+
+        private void handleExitAction(String userName) {
+            activeUsers.remove(userName);
+            new ActiveUserListThread().start();
+            Iterator<String> usersIterator = activeUsers.iterator();
+            while (usersIterator.hasNext()) {
+                String nextUser = usersIterator.next();
+                if (!nextUser.equalsIgnoreCase(userName)) {
                     try {
-                        new DataOutputStream(((Socket) clientSockets.get(key)).getOutputStream())
-                                .writeUTF(":;.,/=" + ids); // set output stream and send the list of active users with identifier prefix :;.,/=
+                        new DataOutputStream(clientSocketMap.get(nextUser).getOutputStream())
+                                .writeUTF(userName + " disconnected...");
                     } catch (Exception e) {
                         e.printStackTrace();
                     }
+                    new ActiveUserListThread().start();
                 }
-            } catch (Exception e) {
-                e.printStackTrace();
+            }
+        }
+
+
+    }
+
+    class ActiveUserListThread extends Thread {
+
+
+
+
+        @Override
+        public void run() {
+            try {
+                String activeUsersIds = prepareActiveUsersListForUI();
+                sendActiveUsersListToClients(activeUsersIds);
+            } catch (IOException e) {
+                logger.warning("Error occurred while sending the active users lists to users :\n" + e);
+            }
+
+        }
+
+        private String prepareActiveUsersListForUI() {
+            StringBuilder activeUsersListForUI = new StringBuilder();
+            for (String activeUser : activeUsers) {
+                activeUsersListForUI.append(activeUser).append(",");
+            }
+            int length = activeUsersListForUI.length();
+            if (length > 0) {
+                activeUsersListForUI.deleteCharAt(length - 1); // Remove trailing comma
+            }
+            return activeUsersListForUI.toString();
+        }
+
+        private void sendActiveUsersListToClients(String activeUsersIds) throws IOException {
+            for (String activeUser : activeUsers) {
+                try {
+                    DataOutputStream outStream = new DataOutputStream(clientSocketMap.get(activeUser).getOutputStream());
+                    outStream.writeUTF(IDENTIFIER_PREFIX + activeUsersIds);
+                } catch (IOException e) {
+                    e.printStackTrace();
+                    throw e;
+                }
             }
         }
     }
-
-
 }

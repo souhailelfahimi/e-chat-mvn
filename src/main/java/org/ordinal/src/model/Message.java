@@ -16,4 +16,7 @@ public class Message {
     private String messageBody;
     private boolean isRead;
     private Timestamp creationTimeStamp;
+
+    public Message(User user1, User user2, String s) {
+    }
 }

@@ -53,7 +53,7 @@ public class MessageDao {
 
     }
 
-    public List<Message> findMessagesByNames(User sender, User recipient) {
+    public List<Message> findMessagesBySenderAndReceiver(User sender, User recipient) {
 
         List<Message> results = new ArrayList<>();
         String sql = "SELECT * FROM messages " +
