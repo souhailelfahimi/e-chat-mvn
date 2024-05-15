@@ -114,25 +114,6 @@ public class UserDAO {
     }
 
 
-    public void saveMessages(List<Message> messages) {
-        String sql = "INSERT INTO messages (sender_id, receiver_id, message_body) VALUES (?, ?, ?)";
 
-        try (Connection connection = databaseService.getConnection();
-             PreparedStatement pstmt = connection.prepareStatement(sql)) {
-
-            for (Message message : messages) {
-                pstmt.setInt(1, message.getSender().getUserId());
-                pstmt.setInt(2, message.getReceiver().getUserId());
-                pstmt.setString(3, message.getMessageBody());
-                pstmt.addBatch();
-            }
-
-            pstmt.executeBatch();
-
-        } catch (SQLException e) {
-            System.out.println(e.getMessage());
-        }
-
-    }
 }
 

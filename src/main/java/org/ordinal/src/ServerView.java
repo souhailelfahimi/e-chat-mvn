@@ -4,9 +4,11 @@ import javax.swing.*;
 import java.awt.*;
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
+import java.io.EOFException;
 import java.io.IOException;
 import java.net.ServerSocket;
 import java.net.Socket;
+import java.net.SocketException;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.Map;
@@ -149,6 +151,17 @@ public class ServerView {
                         activeDlm.removeElement(Id); // remove client from Jlist for server
                         activeClientList.setModel(activeDlm); //update the active user list
                     }
+                } catch (EOFException e) {
+                    JOptionPane.showMessageDialog(frame, "Client " + Id + " has disconnected."); // if user doesn't exist then show message
+
+                    System.out.println("Client " + Id + " has disconnected.");
+                    break; // exit the loop, otherwise it will generate constant stream of the same error
+                } catch (SocketException e) {
+                    JOptionPane.showMessageDialog(frame, "Lost connection to client " + Id);
+                    break; // exit the loop
+                } catch (IOException e) {
+                    e.printStackTrace();
+                    break;
                 } catch (Exception e) {
                     e.printStackTrace();
                 }
