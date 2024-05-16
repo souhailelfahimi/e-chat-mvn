@@ -20,23 +20,23 @@ import java.util.List;
 import java.util.StringTokenizer;
 import java.util.logging.Logger;
 
-import static org.ordinal.src.Server.IDENTIFIER_PREFIX;
+import static org.ordinal.src.service.Server.IDENTIFIER_PREFIX;
 
 
 public class ClientView extends JFrame {
     Logger logger = Logger.getLogger(ClientView.class.getName());
-    private JFrame frame;
-    private JTextField typingBoard;
-    private JList activeUsersList;
-    private JTextArea displayBoard;
-    private JButton sendMessageButton;
-    private DataInputStream inputStream;
-    private DataOutputStream outStream;
+    public JFrame frame;
+    public JTextField typingBoard;
+    public JList activeUsersList;
+    public JTextArea displayBoard;
+    public JButton sendMessageButton;
+    public DataInputStream inputStream;
+    public DataOutputStream outStream;
     private DefaultListModel<String> activeUsersModel;
     private String senderName, selectedUsers = "";
     private ConnexionFormDetails connexionFormDetails;
-    private UserService userService;
-    private MessageService messageService;
+    public UserService userService;
+    public MessageService messageService;
     private List<User> allUsers;
     private Socket socketConnection;
 
@@ -49,12 +49,14 @@ public class ClientView extends JFrame {
         this.senderName = connexionFormDetails.getName();
         SaveUser();
         try {
-            frame.setTitle("e-chat : " + senderName + (connexionFormDetails.isClient() ? "" : " " + connexionFormDetails.getIp() + ":" + connexionFormDetails.getPort())); // set title of UI
-            activeUsersModel = new DefaultListModel<String>(); // default list used for showing active users on UI
-            activeUsersList.setModel(activeUsersModel);// show that list on UI component JList named clientActiveUsersList
-            inputStream = new DataInputStream(socketConnection.getInputStream()); // initilize input and output stream
+            frame.setTitle("e-chat : "
+                           + senderName + (connexionFormDetails.isClient() ?
+                    "" : " " + connexionFormDetails.getIp() + ":" + connexionFormDetails.getPort()));
+            activeUsersModel = new DefaultListModel<>();
+            activeUsersList.setModel(activeUsersModel);
+            inputStream = new DataInputStream(socketConnection.getInputStream());
             outStream = new DataOutputStream(socketConnection.getOutputStream());
-            new ServerMessageListener().start(); // create a new thread for reading the messages
+            new ServerMessageListener().start();
         } catch (Exception ex) {
             ex.printStackTrace();
         }
@@ -121,7 +123,7 @@ public class ClientView extends JFrame {
 
     private void buildUI() {
         frame = new JFrame();
-        frame.setBounds(100, 100, 926, 705);
+        frame.setBounds(100, 100, 728, 705);
         frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         frame.getContentPane().setLayout(null);
         frame.setTitle("Client View");
@@ -133,9 +135,8 @@ public class ClientView extends JFrame {
                 displayBoard,
                 JScrollPane.VERTICAL_SCROLLBAR_ALWAYS,
                 JScrollPane.HORIZONTAL_SCROLLBAR_ALWAYS);
-        scrollPane.setViewportView(displayBoard);
+        scrollPane.setBounds(12, 25, 530, 495);
         frame.getContentPane().add(scrollPane);
-        frame.getContentPane().add(displayBoard);
 
         typingBoard = new JTextField();
         typingBoard.setHorizontalAlignment(SwingConstants.LEFT);
@@ -144,19 +145,19 @@ public class ClientView extends JFrame {
         typingBoard.setColumns(10);
 
         sendMessageButton = new JButton("Send");
-        sendMessageButton.setBounds(554, 533, 137, 84);
+        sendMessageButton.setBounds(554, 533, 139, 84);
         frame.getContentPane().add(sendMessageButton);
 
         activeUsersList = new JList();
         activeUsersList.setToolTipText("Active Users");
-        activeUsersList.setBounds(554, 63, 327, 457);
+        activeUsersList.setBounds(554, 30, 139, 490);
         activeUsersList.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
 
 
         frame.getContentPane().add(activeUsersList);
         JLabel lblNewLabel = new JLabel("Active Users");
         lblNewLabel.setHorizontalAlignment(SwingConstants.LEFT);
-        lblNewLabel.setBounds(559, 43, 95, 16);
+        lblNewLabel.setBounds(559, 10, 95, 16);
         frame.getContentPane().add(lblNewLabel);
         frame.setVisible(true);
         initialiseActions();

@@ -1,5 +1,6 @@
-package org.ordinal.src.db;
+package org.ordinal.src.repository;
 
+import org.ordinal.src.configuration.DatabaseConnection;
 import org.ordinal.src.model.User;
 
 import java.sql.Connection;
@@ -11,17 +12,17 @@ import java.util.List;
 
 public class UserDAO {
 
-    private final DatabaseService databaseService;
+    private final DatabaseConnection databaseConnection;
 
-    public UserDAO(DatabaseService databaseService) {
-        this.databaseService = databaseService;
+    public UserDAO(DatabaseConnection databaseConnection) {
+        this.databaseConnection = databaseConnection;
     }
 
     public List<User> findAll() {
         List<User> users = new ArrayList<>();
         String sql = "SELECT * FROM users";
 
-        try (Connection connection = databaseService.getConnection();
+        try (Connection connection = databaseConnection.getConnection();
              PreparedStatement stmt = connection.prepareStatement(sql);
              ResultSet rs = stmt.executeQuery()) {
 
@@ -44,7 +45,7 @@ public class UserDAO {
 
 
     public void saveUser(User newUser) {
-        try (Connection connection = databaseService.getConnection()) {
+        try (Connection connection = databaseConnection.getConnection()) {
             String sql = "INSERT INTO users (user_name) VALUES (?)";
             PreparedStatement pstmt = connection.prepareStatement(sql);
             pstmt.setString(1, newUser.getUserName());
@@ -59,7 +60,7 @@ public class UserDAO {
         for (String name : names) {
             String sql = "SELECT * FROM users WHERE user_name = ?";
 
-            try (Connection connection = databaseService.getConnection();
+            try (Connection connection = databaseConnection.getConnection();
                  PreparedStatement stmt = connection.prepareStatement(sql)) {
 
                 stmt.setString(1, name);
@@ -90,7 +91,7 @@ public class UserDAO {
 
         String sql = "SELECT * FROM users WHERE user_name = ?";
 
-        try (Connection connection = databaseService.getConnection();
+        try (Connection connection = databaseConnection.getConnection();
              PreparedStatement stmt = connection.prepareStatement(sql)) {
 
             stmt.setString(1, name);

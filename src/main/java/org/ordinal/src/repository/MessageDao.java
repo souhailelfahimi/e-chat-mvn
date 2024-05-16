@@ -1,5 +1,6 @@
-package org.ordinal.src.db;
+package org.ordinal.src.repository;
 
+import org.ordinal.src.configuration.DatabaseConnection;
 import org.ordinal.src.model.Message;
 import org.ordinal.src.model.User;
 
@@ -11,16 +12,16 @@ import java.util.ArrayList;
 import java.util.List;
 
 public class MessageDao {
-    private final DatabaseService databaseService;
+    private final DatabaseConnection databaseConnection;
 
-    public MessageDao(DatabaseService databaseService) {
-        this.databaseService = databaseService;
+    public MessageDao(DatabaseConnection databaseConnection) {
+        this.databaseConnection = databaseConnection;
     }
 
     public void saveMessage(String senderId, String receiverId, String message) {
         String sql = "INSERT INTO message(senderId, receiverId, message) VALUES(?, ?, ?)";
 
-        try (Connection conn = this.databaseService.getConnection();
+        try (Connection conn = this.databaseConnection.getConnection();
              PreparedStatement pstmt = conn.prepareStatement(sql)) {
             pstmt.setString(1, senderId);
             pstmt.setString(2, receiverId);
@@ -35,7 +36,7 @@ public class MessageDao {
     public void saveMessages(List<Message> messages) {
         String sql = "INSERT INTO messages (sender_id, receiver_id, message_body) VALUES (?, ?, ?)";
 
-        try (Connection connection = databaseService.getConnection();
+        try (Connection connection = databaseConnection.getConnection();
              PreparedStatement pstmt = connection.prepareStatement(sql)) {
 
             for (Message message : messages) {
@@ -59,7 +60,7 @@ public class MessageDao {
         String sql = "SELECT * FROM messages " +
                      "WHERE (sender_id = ? AND receiver_id = ?) OR (sender_id = ? AND receiver_id = ?) " +
                      "ORDER BY message_created_at ASC";
-        try (Connection connection = databaseService.getConnection();
+        try (Connection connection = databaseConnection.getConnection();
              PreparedStatement pstmt = connection.prepareStatement(sql)) {
             pstmt.setInt(1, sender.getUserId());
             pstmt.setInt(2, recipient.getUserId());

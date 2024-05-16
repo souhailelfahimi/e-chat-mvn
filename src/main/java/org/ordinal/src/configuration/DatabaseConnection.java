@@ -1,10 +1,10 @@
-package org.ordinal.src.db;
+package org.ordinal.src.configuration;
 
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.SQLException;
 
-public class DatabaseService {
+public class DatabaseConnection {
     private final String url = "jdbc:mysql://localhost:3306/e-chat";
     private final String username = "root";
     private final String password = "root";

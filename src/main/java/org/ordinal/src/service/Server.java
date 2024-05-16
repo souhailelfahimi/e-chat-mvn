@@ -1,6 +1,5 @@
-package org.ordinal.src;
+package org.ordinal.src.service;
 
-import javax.swing.*;
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.EOFException;
@@ -17,11 +16,12 @@ import java.util.logging.Logger;
 
 
 public class Server {
+    public static final String USERNAME_ALREADY_TAKEN = "Username already taken";
     public static final String IDENTIFIER_PREFIX = ":;.,/=";
-    private static Map<String, Socket> clientSocketMap = new ConcurrentHashMap<>();
-    private static Set<String> activeUsers = new HashSet<>();
+    public static Map<String, Socket> clientSocketMap = new ConcurrentHashMap<>();
+    public static Set<String> activeUsers = new HashSet<>();
     private static int port = 8818;
-    private ServerSocket serverSocket;
+    public ServerSocket serverSocket;
     private Logger logger = Logger.getLogger(Server.class.getName());
 
     public Server() {
@@ -33,8 +33,7 @@ public class Server {
         }
     }
 
-    class ClientConnectionThread extends Thread {
-        private static final String USERNAME_ALREADY_TAKEN = "Username already taken";
+    public class ClientConnectionThread extends Thread {
 
         @Override
         public void run() {
@@ -58,27 +57,27 @@ public class Server {
             }
         }
 
-        private boolean isUsernameTaken(String username) {
+        public boolean isUsernameTaken(String username) {
             return activeUsers != null && activeUsers.contains(username);
         }
 
-        private void addUser(Socket clientSocket, String username, DataOutputStream clientOutputStream) throws IOException {
+        public void addUser(Socket clientSocket, String username, DataOutputStream clientOutputStream) throws IOException {
             clientSocketMap.put(username, clientSocket);
             activeUsers.add(username);
             clientOutputStream.writeUTF("");
         }
 
-        private void createClientThreads(String username, Socket clientSocket) {
+        public void createClientThreads(String username, Socket clientSocket) {
             new ClientMessageListenerThread(clientSocket, username).start();
             new ActiveUserListThread().start();
         }
     }
 
-    class ClientMessageListenerThread extends Thread {
+    public class ClientMessageListenerThread extends Thread {
         Socket socket;
         String userName;
 
-        private ClientMessageListenerThread(Socket s, String userName) { // socket and username will be provided by client
+        public ClientMessageListenerThread(Socket s, String userName) {
             this.socket = s;
             this.userName = userName;
         }
@@ -149,9 +148,7 @@ public class Server {
 
     }
 
-    class ActiveUserListThread extends Thread {
-
-
+    public class ActiveUserListThread extends Thread {
 
 
         @Override
@@ -172,7 +169,7 @@ public class Server {
             }
             int length = activeUsersListForUI.length();
             if (length > 0) {
-                activeUsersListForUI.deleteCharAt(length - 1); // Remove trailing comma
+                activeUsersListForUI.deleteCharAt(length - 1);
             }
             return activeUsersListForUI.toString();
         }

@@ -1,4 +1,4 @@
-package org.ordinal.src;
+package org.ordinal.src.service;
 
 import org.ordinal.src.model.ConnexionFormDetails;
 import org.ordinal.src.view.ClientView;
