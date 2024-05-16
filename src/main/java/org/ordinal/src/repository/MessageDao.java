@@ -70,7 +70,6 @@ public class MessageDao {
             while (rs.next()) {
                 Message message = new Message();
                 message.setMessageBody(rs.getString("message_body"));
-
                 if(sender.getUserId() == rs.getInt("sender_id")
                    && recipient.getUserId() == rs.getInt("receiver_id")) {
                     message.setSender(sender);

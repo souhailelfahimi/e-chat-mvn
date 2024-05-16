@@ -177,11 +177,15 @@ public class Server {
         private void sendActiveUsersListToClients(String activeUsersIds) throws IOException {
             for (String activeUser : activeUsers) {
                 try {
-                    DataOutputStream outStream = new DataOutputStream(clientSocketMap.get(activeUser).getOutputStream());
-                    outStream.writeUTF(IDENTIFIER_PREFIX + activeUsersIds);
+                    Socket clientSocket = clientSocketMap.get(activeUser);
+                    if (clientSocket != null && !clientSocket.isClosed()) {
+                        DataOutputStream outStream = new DataOutputStream(clientSocket.getOutputStream());
+                        outStream.writeUTF(IDENTIFIER_PREFIX + activeUsersIds);
+                    } else {
+                        logger.warning("Connection to user " + activeUser + " is closed. Skipping sending activeUserIds");
+                    }
                 } catch (IOException e) {
-                    e.printStackTrace();
-                    throw e;
+                    logger.warning("an exception occurred  when sending active user list" + e.getMessage());
                 }
             }
         }

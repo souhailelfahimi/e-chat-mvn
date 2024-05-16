@@ -165,8 +165,7 @@ public class ClientView extends JFrame {
 
     private void saveMessages(ConnexionFormDetails connexionFormDetails, String textAreaMessage) {
         User sender = userService.getUserByName(connexionFormDetails.getName());
-        List<String> receiversName = Arrays.stream(selectedUsers.split(",")).toList();
-        List<User> receivers = userService.getUserByNames(receiversName);
+        List<User> receivers = userService.getUserByNames(activeUsersList.getSelectedValuesList());
         List<Message> messages = new ArrayList<>();
         for (User receiver : receivers) {
             Message message = Message.builder()
